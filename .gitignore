@@ -1,0 +1,14 @@
+# dados gerados ao rodar (cada máquina tem os seus)
+*.jsonl
+simulador-cenarios.json
+backup-dados/
+
+# segredo: token dos webhooks (o iniciar.bat gera um novo se não existir)
+token-webhook.txt
+
+# executável: vai na release do GitHub (ou é compilado pelo iniciar.bat)
+*.exe
+dados/
+
+# endereço do Zabbix de cada instalação (lido pelo iniciar.bat)
+zabbix-url.txt

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WhatsApp simulado</title>
+<style>
+/* WhatsApp simulado: uma conversa só (o grupo de incidentes do CGR), sem conexão real */
+:root {
+  --fundo: #efeae2; --painel: #ffffff; --cab: #f0f2f5; --linha: #e9edef;
+  --tx: #111b21; --tx2: #667781; --entrada: #ffffff; --saida: #d9fdd3;
+  --verde: #00a884; --aviso: #ffeecd; --aviso-tx: #54656f; --chip: #ffffff;
+  --sombra: 0 1px .5px rgba(11,20,26,.13);
+  --padrao: rgba(0,0,0,.035);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #0b141a; --painel: #111b21; --cab: #202c33; --linha: #222d34;
+    --tx: #e9edef; --tx2: #8696a0; --entrada: #202c33; --saida: #005c4b;
+    --verde: #00a884; --aviso: #182229; --aviso-tx: #ffd279; --chip: #182229;
+    --sombra: 0 1px .5px rgba(11,20,26,.4);
+    --padrao: rgba(255,255,255,.025);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--painel); color: var(--tx); font: 14.2px/1.4 "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; overflow: hidden; }
+.app { display: grid; grid-template-columns: minmax(280px, 30%) 1fr; height: 100dvh; }
+@media (max-width: 760px) { .app { grid-template-columns: 1fr; } .lateral { display: none; } }
+
+/* lista de conversas (só uma) */
+.lateral { display: grid; grid-template-rows: auto auto 1fr; border-right: 1px solid var(--linha); background: var(--painel); min-width: 0; }
+.lat-cab { display: flex; align-items: center; justify-content: space-between; height: 59px; padding: 0 16px; background: var(--cab); }
+.lat-cab b { font-size: 16px; font-weight: 600; }
+.lat-cab small { color: var(--tx2); font-size: 12px; }
+.busca { padding: 8px 12px; border-bottom: 1px solid var(--linha); }
+.busca div { height: 35px; border-radius: 8px; background: var(--cab); color: var(--tx2); display: flex; align-items: center; padding: 0 14px; font-size: 13.5px; }
+.conversa { display: grid; grid-template-columns: 49px 1fr auto; gap: 0 13px; align-items: center; padding: 10px 16px; background: var(--cab); cursor: default; }
+.conversa .nome { font-size: 16px; }
+.conversa .prev { color: var(--tx2); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conversa .hora { color: var(--tx2); font-size: 12px; text-align: right; }
+.conversa .nao-lidas { justify-self: end; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--verde); color: #fff; font-size: 12px; font-weight: 600; display: grid; place-items: center; }
+.conversa .nao-lidas[hidden] { display: none; }
+.av { width: 49px; height: 49px; border-radius: 50%; background: #6b7c85; color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 17px; }
+.av svg { width: 28px; height: 28px; fill: currentColor; }
+
+/* conversa */
+.chat { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; height: 100dvh; background: var(--fundo); position: relative; }
+.chat-cab { display: flex; align-items: center; gap: 13px; height: 59px; padding: 0 16px; background: var(--cab); border-left: 1px solid var(--linha); }
+.chat-cab .av { width: 40px; height: 40px; font-size: 15px; }
+.chat-cab .av svg { width: 24px; height: 24px; }
+.chat-cab div:nth-child(2) { min-width: 0; }
+.chat-cab b { display: block; font-size: 16px; font-weight: 500; }
+.chat-cab small { display: block; color: var(--tx2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msgs { overflow-y: auto; padding: 12px 6% 8px; background-image: radial-gradient(var(--padrao) 1.2px, transparent 1.2px); background-size: 18px 18px; }
+.msgs::-webkit-scrollbar { width: 6px; } .msgs::-webkit-scrollbar-thumb { background: rgba(134,150,160,.35); border-radius: 3px; }
+.aviso { max-width: 560px; margin: 4px auto 12px; padding: 6px 12px; border-radius: 7.5px; background: var(--aviso); color: var(--aviso-tx); font-size: 12.5px; text-align: center; box-shadow: var(--sombra); }
+.dia { display: table; margin: 10px auto; padding: 5px 12px; border-radius: 7.5px; background: var(--chip); color: var(--tx2); font-size: 12.5px; box-shadow: var(--sombra); text-transform: uppercase; }
+.linha { display: flex; margin: 2px 0; }
+.linha.eu { justify-content: flex-end; }
+.linha.seguida { margin-top: 1px; }
+.balao { position: relative; max-width: min(620px, 78%); padding: 6px 7px 8px 9px; border-radius: 7.5px; background: var(--entrada); box-shadow: var(--sombra); }
+.eu .balao { background: var(--saida); }
+.linha:not(.seguida) .balao { border-top-left-radius: 0; }
+.linha.eu:not(.seguida) .balao { border-top-left-radius: 7.5px; border-top-right-radius: 0; }
+.linha:not(.seguida) .balao::before { content: ""; position: absolute; top: 0; left: -8px; width: 8px; height: 13px; background: var(--entrada); clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.linha.eu:not(.seguida) .balao::before { left: auto; right: -8px; background: var(--saida); clip-path: polygon(0 0, 100% 0, 0 100%); }
+.autor { display: block; font-size: 12.8px; font-weight: 500; color: #06cf9c; margin-bottom: 2px; }
+.texto { white-space: pre-wrap; overflow-wrap: anywhere; }
+.texto code { font: 13px Consolas, "Cascadia Mono", monospace; }
+.meta { float: right; margin: 6px 0 -4px 12px; color: var(--tx2); font-size: 11px; line-height: 15px; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
+.meta svg { width: 16px; height: 11px; fill: #53bdeb; }
+.ir-fim { position: absolute; right: 22px; bottom: 76px; width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--cab); color: var(--tx2); box-shadow: 0 1px 3px rgba(11,20,26,.3); cursor: pointer; font-size: 18px; }
+.ir-fim[hidden] { display: none; }
+.ir-fim span { position: absolute; top: -6px; right: -4px; min-width: 20px; height: 20px; border-radius: 10px; background: var(--verde); color: #fff; font-size: 11.5px; font-weight: 600; display: grid; place-items: center; padding: 0 5px; }
+.ir-fim span:empty { display: none; }
+
+/* digitar */
+.compor { display: flex; align-items: flex-end; gap: 8px; padding: 6px 16px 8px; background: var(--cab); }
+.compor textarea { flex: 1; resize: none; max-height: 120px; min-height: 42px; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--painel); color: var(--tx); font: inherit; line-height: 1.45; outline: none; }
+.compor button { width: 42px; height: 42px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--tx2); cursor: pointer; display: grid; place-items: center; }
+.compor button svg { width: 24px; height: 24px; fill: currentColor; }
+.compor button:not(:disabled):hover { color: var(--verde); }
+.vazio { margin: 40px auto; text-align: center; color: var(--tx2); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="lateral" aria-label="Conversas">
+    <div class="lat-cab"><b>Conversas</b><small>simulado</small></div>
+    <div class="busca"><div>Pesquisar ou começar uma nova conversa</div></div>
+    <div>
+      <div class="conversa" aria-current="true">
+        <div class="av" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5v1H5v-1Zm13.5-9.6a3 3 0 1 0-1.3-5.7 5.5 5.5 0 0 1 0 5.6c.4.1.9.1 1.3.1ZM19.8 14c1.6.7 2.7 2 2.7 3.6v1.4h-2v-1c0-1.6-.3-2.9-.7-4Z"/></svg></div>
+        <div style="min-width:0"><div class="nome" id="latNome">Incidentes CGR</div><div class="prev" id="latPrev">—</div></div>
+        <div><div class="hora" id="latHora"></div><div class="nao-lidas" id="latNao" hidden></div></div>
+      </div>
+    </div>
+  </aside>
+  <main class="chat">
+    <header class="chat-cab">
+      <div class="av" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5v1H5v-1Zm13.5-9.6a3 3 0 1 0-1.3-5.7 5.5 5.5 0 0 1 0 5.6c.4.1.9.1 1.3.1ZM19.8 14c1.6.7 2.7 2 2.7 3.6v1.4h-2v-1c0-1.6-.3-2.9-.7-4Z"/></svg></div>
+      <div><b id="nomeGrupo">Incidentes CGR</b><small id="membros">carregando…</small></div>
+    </header>
+    <div class="msgs" id="msgs" aria-live="polite">
+      <div class="aviso">🔒 Simulação local: nenhuma mensagem sai deste computador. Os comunicados chegam do Termógrafo.</div>
+    </div>
+    <button type="button" class="ir-fim" id="irFim" hidden aria-label="Ir para a última mensagem">⌄<span id="irFimN"></span></button>
+    <form class="compor" id="compor">
+      <textarea id="campo" rows="1" placeholder="Digite uma mensagem" aria-label="Mensagem"></textarea>
+      <button type="submit" aria-label="Enviar"><svg viewBox="0 0 24 24"><path d="M1.1 21.8 23 12 1.1 2.2 1 9.8 16.6 12 1 14.2z"/></svg></button>
+    </form>
+  </main>
+</div>
+<script>
+(() => {
+  const msgsEl = document.getElementById('msgs'), campo = document.getElementById('campo');
+  const irFim = document.getElementById('irFim'), irFimN = document.getElementById('irFimN');
+  const vistos = new Set();
+  let ultimaData = '', ultimoAutor = '', ultimoEm = 0, novasAbaixo = 0, naoLidas = 0;
+  const dd = n => String(n).padStart(2, '0');
+  const hora = ms => { const d = new Date(ms); return `${dd(d.getHours())}:${dd(d.getMinutes())}`; };
+  const rotuloDia = ms => {
+    const d = new Date(ms), hoje = new Date(), ontem = new Date(Date.now() - 864e5);
+    const igual = (a, b) => a.toDateString() === b.toDateString();
+    return igual(d, hoje) ? 'Hoje' : igual(d, ontem) ? 'Ontem' : `${dd(d.getDate())}/${dd(d.getMonth() + 1)}/${d.getFullYear()}`;
+  };
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  // formatação do WhatsApp: *negrito*, _itálico_, ~riscado~, ```mono```
+  const formatar = t => esc(t)
+    .replace(/```([\s\S]+?)```/g, '<code>$1</code>')
+    .replace(/(^|[\s(])\*(?!\s)([^*\n]+?)\*(?=$|[\s.,!?)])/gm, '$1<b>$2</b>')
+    .replace(/(^|[\s(])_(?!\s)([^_\n]+?)_(?=$|[\s.,!?)])/gm, '$1<i>$2</i>')
+    .replace(/(^|[\s(])~(?!\s)([^~\n]+?)~(?=$|[\s.,!?)])/gm, '$1<s>$2</s>');
+  const TIQUES = '<svg viewBox="0 0 16 11" aria-label="entregue"><path d="M11.07.65 10.4.13a.37.37 0 0 0-.52.06L4.6 6.82 2.46 4.8a.37.37 0 0 0-.52.01l-.62.6a.37.37 0 0 0 0 .53l2.98 2.83c.15.14.38.13.52-.02L11.13 1.17a.37.37 0 0 0-.06-.52Zm4 0-.67-.52a.37.37 0 0 0-.52.06L8.6 6.82l-.62-.59-.98 1.15 1.3 1.24c.15.14.38.13.52-.02l6.31-7.43a.37.37 0 0 0-.06-.52Z"/></svg>';
+  const cores = ['#06cf9c', '#53bdeb', '#ff72a1', '#ffbc38', '#a791ff'];
+  const corDe = nome => cores[[...nome].reduce((s, c) => s + c.charCodeAt(0), 0) % cores.length];
+  const pertoDoFim = () => msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight < 120;
+
+  function adicionar(m, inicial) {
+    if (vistos.has(m.id)) return;
+    vistos.add(m.id);
+    const descer = inicial || pertoDoFim() || m.de === 'Você';
+    const dia = rotuloDia(m.em);
+    if (dia !== ultimaData) {
+      const chip = document.createElement('div'); chip.className = 'dia'; chip.textContent = dia;
+      msgsEl.appendChild(chip); ultimaData = dia; ultimoAutor = '';
+    }
+    const eu = m.de === 'Você';
+    const seguida = ultimoAutor === m.de && m.em - ultimoEm < 5 * 60e3;
+    const linha = document.createElement('div');
+    linha.className = 'linha' + (eu ? ' eu' : '') + (seguida ? ' seguida' : '');
+    linha.innerHTML = `<div class="balao">${!eu && !seguida ? `<span class="autor" style="color:${corDe(m.de)}"></span>` : ''}<span class="meta">${hora(m.em)}${eu ? TIQUES : ''}</span><div class="texto">${formatar(m.texto)}</div></div>`;
+    const autor = linha.querySelector('.autor'); if (autor) autor.textContent = m.de;
+    msgsEl.appendChild(linha);
+    ultimoAutor = m.de; ultimoEm = m.em;
+    document.getElementById('latPrev').textContent = `${eu ? 'Você' : m.de}: ${m.texto.split('\n')[0]}`;
+    document.getElementById('latHora').textContent = hora(m.em);
+    if (inicial) return;
+    if (descer) msgsEl.scrollTop = msgsEl.scrollHeight;
+    else { novasAbaixo++; irFimN.textContent = novasAbaixo; irFim.hidden = false; }
+    if (!eu && document.hidden) { naoLidas++; atualizarTitulo(); }
+  }
+  function atualizarTitulo() {
+    document.title = naoLidas ? `(${naoLidas}) WhatsApp simulado` : 'WhatsApp simulado';
+    const b = document.getElementById('latNao'); b.textContent = naoLidas; b.hidden = !naoLidas;
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { naoLidas = 0; atualizarTitulo(); } });
+  msgsEl.addEventListener('scroll', () => { if (pertoDoFim()) { novasAbaixo = 0; irFimN.textContent = ''; irFim.hidden = true; } });
+  irFim.addEventListener('click', () => { msgsEl.scrollTo({ top: msgsEl.scrollHeight, behavior: 'smooth' }); });
+
+  async function carregar(inicial) {
+    const j = await fetch('api/grupo', { cache: 'no-store' }).then(r => r.json());
+    document.getElementById('nomeGrupo').textContent = j.nome;
+    document.getElementById('latNome').textContent = j.nome;
+    document.getElementById('membros').textContent = [...j.membros, 'Você'].join(', ');
+    if (inicial && !j.mensagens.length) {
+      const v = document.createElement('p'); v.className = 'vazio'; v.id = 'vazio';
+      v.textContent = 'Nenhuma mensagem ainda. Abra uma O.S. técnica no Termógrafo e o comunicado aparece aqui.';
+      msgsEl.appendChild(v);
+    }
+    if (j.mensagens.length) document.getElementById('vazio')?.remove();
+    j.mensagens.forEach(m => adicionar(m, inicial));
+    if (inicial) msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+
+  // ao vivo pelo servidor; se os eventos não chegarem (túnel), consulta a cada 5 s
+  let consultando = null;
+  function aoVivo() {
+    const fonte = new EventSource('eventos');
+    const reserva = setTimeout(() => { if (!consultando) consultando = setInterval(() => carregar(false).catch(() => {}), 5000); }, 6000);
+    fonte.addEventListener('ola', () => { clearTimeout(reserva); if (consultando) { clearInterval(consultando); consultando = null; } carregar(false).catch(() => {}); });
+    fonte.addEventListener('mensagem', e => { try { document.getElementById('vazio')?.remove(); adicionar(JSON.parse(e.data), false); } catch {} });
+  }
+
+  // digitar como membro do grupo (Enter envia, Shift+Enter quebra a linha)
+  const ajustar = () => { campo.style.height = 'auto'; campo.style.height = Math.min(120, campo.scrollHeight) + 'px'; };
+  campo.addEventListener('input', ajustar);
+  campo.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('compor').requestSubmit(); } });
+  document.getElementById('compor').addEventListener('submit', async e => {
+    e.preventDefault();
+    const texto = campo.value.trim(); if (!texto) return;
+    campo.value = ''; ajustar();
+    try {
+      const r = await fetch('api/enviar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ de: 'Você', texto }) });
+      if (!r.ok) throw new Error();
+      if (consultando) carregar(false).catch(() => {});
+    } catch { campo.value = texto; ajustar(); }
+  });
+
+  carregar(true).then(aoVivo).catch(() => { document.getElementById('membros').textContent = 'sem conexão com o servidor simulado'; });
+})();
+</script>
+</body>
+</html>
